@@ -8,6 +8,11 @@ import unicodedata
 # Ruta donde se almacenan los datos
 data_file = "registros_entrenadores.csv"
 
+# Colores del Club Baloncesto Calatayud
+COLOR_AZUL = "#0033A0"
+COLOR_ROSA = "#FF69B4"
+COLOR_BLANCO = "#FFFFFF"
+
 # Funciones auxiliares
 def eliminar_tildes(texto):
     return unicodedata.normalize('NFKD', texto).encode('ascii', 'ignore').decode('utf-8')
@@ -20,48 +25,28 @@ def guardar_datos(data):
         df_nuevo = data
     df_nuevo.to_csv(data_file, index=False)
 
+def obtener_dias_del_mes(year, month_index):
+    dias = []
+    for day in range(1, calendar.monthrange(year, month_index)[1] + 1):
+        weekday = calendar.weekday(year, month_index, day)
+        nombre_dia = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo"][weekday]
+        dias.append(f"{nombre_dia}-{str(day).zfill(2)}")
+    return dias
+
 # Configuracion de pagina
 st.set_page_config(page_title="Registro de Entrenamientos y Partidos", layout="centered")
-st.title("Registro mensual de entrenadores")
+
+st.markdown(f"""
+    <h1 style='text-align: center; color: {COLOR_AZUL};'>Registro mensual de entrenadores</h1>
+""", unsafe_allow_html=True)
 
 # Autenticacion
 password = st.text_input("Introduce la contrasena", type="password")
 
 if password == "cbcentrenador" or password == "cbcadmin":
-    st.markdown("---")
-    st.markdown("Por favor, rellena el formulario correspondiente al mes actual.")
+    st.markdown("<hr>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: #555;'>Por favor, rellena el formulario correspondiente al mes actual.</h3>", unsafe_allow_html=True)
 
-    # Seleccion de mes y generacion de calendario tipo cuadrícula
-    st.markdown("### Selecciona el mes y los dias entrenados")
-    meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
-    selected_month = st.selectbox("Mes", meses)
-    month_index = meses.index(selected_month) + 1
-    year = 2025
-    days_in_month = calendar.monthrange(year, month_index)[1]
-
-    st.markdown("#### Haz clic en los días entrenados")
-    if "dias" not in st.session_state:
-        st.session_state.dias = set()
-
-    cols = st.columns(7)
-    week_day = calendar.monthrange(year, month_index)[0]  # 0 = lunes
-
-    # Espacios en blanco hasta el primer día del mes
-    for i in range(week_day):
-        cols[i].empty()
-
-    for day in range(1, days_in_month + 1):
-        i = (week_day + day - 1) % 7
-        if cols[i].button(str(day), key=f"day_{month_index}_{day}"):
-            st.session_state.dias.symmetric_difference_update({day})
-
-        if (week_day + day) % 7 == 0:
-            cols = st.columns(7)
-
-    selected_days = sorted(st.session_state.get("dias", set()))
-    st.write(f"**Días seleccionados:** {', '.join(str(d) for d in selected_days)}")
-
-    # Formulario principal (sin botones dentro)
     with st.form("registro_form"):
         nombre = st.text_input("Nombre")
         apellidos = st.text_input("Apellidos")
@@ -74,6 +59,18 @@ if password == "cbcentrenador" or password == "cbcadmin":
 
         rol = st.selectbox("Rol", ["Principal", "Ayudante"])
 
+        # Selección del mes
+        meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+        selected_month = st.selectbox("Mes", meses)
+        month_index = meses.index(selected_month) + 1
+        year = 2025
+
+        dias_del_mes = obtener_dias_del_mes(year, month_index)
+        num_dias = st.number_input("Numero de dias entrenados (haz clic para ver el calendario)", min_value=0, max_value=len(dias_del_mes), step=1)
+
+        with st.expander("Ver dias del mes"):
+            st.write(", ".join(dias_del_mes))
+
         partidos_casa = st.number_input("Partidos dirigidos en casa", min_value=0, step=1)
         partidos_fuera = st.number_input("Partidos dirigidos fuera", min_value=0, step=1)
 
@@ -82,36 +79,33 @@ if password == "cbcentrenador" or password == "cbcadmin":
         if submitted:
             if not nombre or not apellidos:
                 st.warning("Por favor, completa tu nombre y apellidos.")
-            elif len(selected_days) == 0:
-                st.warning("Debes seleccionar al menos un día de entrenamiento.")
+            elif num_dias == 0:
+                st.warning("Debes indicar al menos un día de entrenamiento.")
             else:
                 nombre_clean = eliminar_tildes(nombre)
                 apellidos_clean = eliminar_tildes(apellidos)
                 categoria_clean = eliminar_tildes(categoria)
                 rol_clean = eliminar_tildes(rol)
-
-                fechas_entrenamiento = [f"{str(day).zfill(2)}-{str(month_index).zfill(2)}" for day in selected_days]
+                mes_clean = eliminar_tildes(selected_month)
 
                 nueva_fila = pd.DataFrame([{
                     "Nombre": nombre_clean,
                     "Apellidos": apellidos_clean,
                     "Categoria": categoria_clean,
                     "Rol": rol_clean,
-                    "Horas entrenadas": len(selected_days),
+                    "Horas entrenadas": num_dias,
                     "Partidos casa": partidos_casa,
                     "Partidos fuera": partidos_fuera,
-                    "Mes": eliminar_tildes(selected_month),
-                    "Dias entrenados": ", ".join(fechas_entrenamiento),
+                    "Mes": mes_clean,
                     "Fecha registro": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 }])
 
                 guardar_datos(nueva_fila)
-                st.session_state.dias.clear()
                 st.success("Registro guardado con exito. ¡Gracias!")
 
     if password == "cbcadmin":
-        st.markdown("---")
-        st.markdown("### Acceso administrador")
+        st.markdown("<hr>", unsafe_allow_html=True)
+        st.markdown(f"<h3 style='color:{COLOR_AZUL};'>Acceso administrador</h3>", unsafe_allow_html=True)
         if os.path.exists(data_file):
             df = pd.read_csv(data_file)
             st.dataframe(df)
