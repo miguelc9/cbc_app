@@ -51,57 +51,70 @@ if password == "cbcentrenador" or password == "cbcadmin":
         nombre = st.text_input("Nombre")
         apellidos = st.text_input("Apellidos")
 
-        categoria = st.selectbox("Categoria", [
+        categorias = [
             "benjamin 1", "benjamin 2y3", "alevin femenino", "alevin masculino",
             "infantil femenino", "infantil masculino", "cadete femenino", "cadete masculino",
             "junior masculino", "senior masculino", "escuela"
-        ])
+        ]
 
-        rol = st.selectbox("Rol", ["Principal", "Ayudante"])
+        bloques = []
+        num_bloques = st.number_input("¿Cuántas categorías diferentes quieres registrar?", min_value=1, step=1)
 
-        # Selección del mes
-        meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
-        selected_month = st.selectbox("Mes", meses)
-        month_index = meses.index(selected_month) + 1
-        year = 2025
+        for i in range(num_bloques):
+            with st.expander(f"Categoría #{i+1}", expanded=True):
+                categoria = st.selectbox(f"Categoria", categorias, key=f"categoria_{i}")
+                rol = st.selectbox("Rol", ["Principal", "Ayudante"], key=f"rol_{i}")
+                meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+                selected_month = st.selectbox("Mes", meses, key=f"mes_{i}")
+                month_index = meses.index(selected_month) + 1
+                year = 2025
 
-        dias_del_mes = obtener_dias_del_mes(year, month_index)
-        num_dias = st.number_input("Numero de dias entrenados (haz clic para ver el calendario)", min_value=0, max_value=len(dias_del_mes), step=1)
+                dias_del_mes = obtener_dias_del_mes(year, month_index)
+                num_dias = st.number_input("Numero de dias entrenados", min_value=0, max_value=len(dias_del_mes), step=1, key=f"dias_{i}")
+                st.caption(f"Días del mes: {', '.join(dias_del_mes)}")
 
-        with st.expander("Ver dias del mes"):
-            st.write(", ".join(dias_del_mes))
+                partidos_casa = st.number_input("Partidos dirigidos en casa", min_value=0, step=1, key=f"casa_{i}")
+                partidos_fuera = st.number_input("Partidos dirigidos fuera", min_value=0, step=1, key=f"fuera_{i}")
 
-        partidos_casa = st.number_input("Partidos dirigidos en casa", min_value=0, step=1)
-        partidos_fuera = st.number_input("Partidos dirigidos fuera", min_value=0, step=1)
+                bloques.append({
+                    "Categoria": categoria,
+                    "Rol": rol,
+                    "Mes": selected_month,
+                    "Horas entrenadas": num_dias,
+                    "Partidos casa": partidos_casa,
+                    "Partidos fuera": partidos_fuera
+                })
 
         submitted = st.form_submit_button("Enviar")
 
         if submitted:
             if not nombre or not apellidos:
                 st.warning("Por favor, completa tu nombre y apellidos.")
-            elif num_dias == 0:
-                st.warning("Debes indicar al menos un día de entrenamiento.")
             else:
                 nombre_clean = eliminar_tildes(nombre)
                 apellidos_clean = eliminar_tildes(apellidos)
-                categoria_clean = eliminar_tildes(categoria)
-                rol_clean = eliminar_tildes(rol)
-                mes_clean = eliminar_tildes(selected_month)
 
-                nueva_fila = pd.DataFrame([{
-                    "Nombre": nombre_clean,
-                    "Apellidos": apellidos_clean,
-                    "Categoria": categoria_clean,
-                    "Rol": rol_clean,
-                    "Horas entrenadas": num_dias,
-                    "Partidos casa": partidos_casa,
-                    "Partidos fuera": partidos_fuera,
-                    "Mes": mes_clean,
-                    "Fecha registro": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                }])
+                registros = []
+                for b in bloques:
+                    if b["Horas entrenadas"] > 0:
+                        fila = {
+                            "Nombre": nombre_clean,
+                            "Apellidos": apellidos_clean,
+                            "Categoria": eliminar_tildes(b["Categoria"]),
+                            "Rol": eliminar_tildes(b["Rol"]),
+                            "Horas entrenadas": b["Horas entrenadas"],
+                            "Partidos casa": b["Partidos casa"],
+                            "Partidos fuera": b["Partidos fuera"],
+                            "Mes": eliminar_tildes(b["Mes"]),
+                            "Fecha registro": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        }
+                        registros.append(fila)
 
-                guardar_datos(nueva_fila)
-                st.success("Registro guardado con exito. ¡Gracias!")
+                if registros:
+                    guardar_datos(pd.DataFrame(registros))
+                    st.success("Registro guardado con exito. ¡Gracias!")
+                else:
+                    st.warning("Debes introducir al menos una categoria con dias entrenados.")
 
     if password == "cbcadmin":
         st.markdown("<hr>", unsafe_allow_html=True)
