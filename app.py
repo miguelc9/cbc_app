@@ -69,9 +69,7 @@ if password == "cbcentrenador" or password == "cbcadmin":
                 month_index = meses.index(selected_month) + 1
                 year = 2025
 
-                dias_del_mes = obtener_dias_del_mes(year, month_index)
-                num_dias = st.number_input("Numero de dias entrenados", min_value=0, max_value=len(dias_del_mes), step=1, key=f"dias_{i}")
-                st.caption(f"Días del mes: {', '.join(dias_del_mes)}")
+                num_dias = st.number_input("Numero de dias entrenados", min_value=0, max_value=31, step=1, key=f"dias_{i}")
 
                 partidos_casa = st.number_input("Partidos dirigidos en casa", min_value=0, step=1, key=f"casa_{i}")
                 partidos_fuera = st.number_input("Partidos dirigidos fuera", min_value=0, step=1, key=f"fuera_{i}")
@@ -123,6 +121,9 @@ if password == "cbcentrenador" or password == "cbcadmin":
             df = pd.read_csv(data_file)
             st.dataframe(df)
             st.download_button("Descargar CSV", data=df.to_csv(index=False), file_name="registros_entrenadores.csv", mime="text/csv")
+            if st.button("Eliminar todos los registros"):
+                os.remove(data_file)
+                st.success("Todos los registros han sido eliminados correctamente.")
         else:
             st.info("Aun no hay registros guardados.")
 
