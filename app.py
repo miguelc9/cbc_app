@@ -72,6 +72,14 @@ if password == "cbcentrenador" or password == "cbcadmin":
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown("<h3 style='color: #555;'>Por favor, rellena el formulario correspondiente al mes actual.</h3>", unsafe_allow_html=True)
 
+    # Control dinámico de número de bloques
+    if "num_bloques" not in st.session_state:
+        st.session_state.num_bloques = 1
+
+    st.session_state.num_bloques = st.number_input(
+        "¿Cuántas categorías diferentes quieres registrar?", min_value=1, step=1, value=st.session_state.num_bloques
+    )
+
     with st.form("registro_form"):
         nombre = st.text_input("Nombre")
         apellidos = st.text_input("Apellidos")
@@ -83,9 +91,7 @@ if password == "cbcentrenador" or password == "cbcadmin":
         ]
 
         bloques = []
-        num_bloques = st.number_input("¿Cuántas categorías diferentes quieres registrar?", min_value=1, step=1)
-
-        for i in range(num_bloques):
+        for i in range(st.session_state.num_bloques):
             with st.expander(f"Categoría #{i+1}", expanded=True):
                 categoria = st.selectbox(f"Categoria", categorias, key=f"categoria_{i}")
                 rol = st.selectbox("Rol", ["Principal", "Ayudante"], key=f"rol_{i}")
@@ -173,6 +179,7 @@ if password == "cbcentrenador" or password == "cbcadmin":
 
 elif password != "":
     st.error("Contrasena incorrecta.")
+
 
 
 
