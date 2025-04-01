@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
-from datetime import datetime, date
+from datetime import datetime
 import calendar
 import unicodedata
 
@@ -25,13 +25,38 @@ def guardar_datos(data):
         df_nuevo = data
     df_nuevo.to_csv(data_file, index=False)
 
-def obtener_dias_del_mes(year, month_index):
-    dias = []
-    for day in range(1, calendar.monthrange(year, month_index)[1] + 1):
-        weekday = calendar.weekday(year, month_index, day)
-        nombre_dia = ["Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo"][weekday]
-        dias.append(f"{nombre_dia}-{str(day).zfill(2)}")
-    return dias
+def calcular_pagos(df, mes):
+    df_mes = df[df["Mes"] == mes]
+    pagos = {}
+
+    for _, row in df_mes.iterrows():
+        key = (row["Nombre"], row["Apellidos"])
+        horas = row["Horas entrenadas"]
+        casa = row["Partidos casa"]
+        fuera = row["Partidos fuera"]
+        rol = row["Rol"]
+
+        if rol == "Principal":
+            total = horas * 8 + casa * 16 + fuera * 26
+        elif rol == "Ayudante":
+            total = horas * 6 + casa * 10 + 0
+        else:
+            total = 0
+
+        if key in pagos:
+            pagos[key] += total
+        else:
+            pagos[key] = total
+
+    resultado = []
+    for (nombre, apellidos), total in pagos.items():
+        resultado.append({
+            "Nombre": nombre,
+            "Apellidos": apellidos,
+            "Total (€)": round(total, 2)
+        })
+
+    return pd.DataFrame(resultado)
 
 # Configuracion de pagina
 st.set_page_config(page_title="Registro de Entrenamientos y Partidos", layout="centered")
@@ -66,11 +91,9 @@ if password == "cbcentrenador" or password == "cbcadmin":
                 rol = st.selectbox("Rol", ["Principal", "Ayudante"], key=f"rol_{i}")
                 meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
                 selected_month = st.selectbox("Mes", meses, key=f"mes_{i}")
-                month_index = meses.index(selected_month) + 1
                 year = 2025
 
-                num_dias = st.number_input("Numero de dias entrenados", min_value=0, max_value=31, step=1, key=f"dias_{i}")
-
+                num_dias = st.number_input("Numero de dias entrenados", min_value=0, step=1, key=f"dias_{i}")
                 partidos_casa = st.number_input("Partidos dirigidos en casa", min_value=0, step=1, key=f"casa_{i}")
                 partidos_fuera = st.number_input("Partidos dirigidos fuera", min_value=0, step=1, key=f"fuera_{i}")
 
@@ -117,17 +140,39 @@ if password == "cbcentrenador" or password == "cbcadmin":
     if password == "cbcadmin":
         st.markdown("<hr>", unsafe_allow_html=True)
         st.markdown(f"<h3 style='color:{COLOR_AZUL};'>Acceso administrador</h3>", unsafe_allow_html=True)
+
         if os.path.exists(data_file):
             df = pd.read_csv(data_file)
             st.dataframe(df)
             st.download_button("Descargar CSV", data=df.to_csv(index=False), file_name="registros_entrenadores.csv", mime="text/csv")
-            if st.button("Eliminar todos los registros"):
+
+            if st.button("🗑️ Eliminar todos los registros"):
                 os.remove(data_file)
-                st.success("Todos los registros han sido eliminados correctamente.")
+                st.success("Todos los registros han sido eliminados.")
+
+            st.markdown("---")
+            st.subheader("💶 Cálculo de pagos a entrenadores")
+
+            meses_unicos = df["Mes"].dropna().unique().tolist()
+            meses_ordenados = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+            meses_disponibles = [m for m in meses_ordenados if m in meses_unicos]
+
+            if meses_disponibles:
+                mes_seleccionado = st.selectbox("Selecciona un mes", meses_disponibles)
+                if st.button("Calcular pagos"):
+                    df_pagos = calcular_pagos(df, eliminar_tildes(mes_seleccionado))
+                    if not df_pagos.empty:
+                        st.dataframe(df_pagos)
+                        st.download_button("Descargar pagos en CSV", data=df_pagos.to_csv(index=False), file_name=f"pagos_{mes_seleccionado}.csv", mime="text/csv")
+                    else:
+                        st.info("No hay registros para ese mes.")
+            else:
+                st.info("No hay meses disponibles para calcular pagos.")
         else:
-            st.info("Aun no hay registros guardados.")
+            st.info("Aún no hay registros guardados.")
 
 elif password != "":
     st.error("Contrasena incorrecta.")
+
 
 
